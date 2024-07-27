@@ -1,19 +1,55 @@
 use std::io::{self, Write};
+use serde_json::Value;
 
-pub fn write() -> String {
+pub fn write() -> Value {
     let mut input = String::new();
 
     println!("Enter your text (write END on an empty line to finish)\n");
 
-    loop {
+    return write_loop(&mut input);
+}
+
+pub fn edit_note(note: String) -> Value {
+    let mut input = note;
+
+    println!("Enter your text (write END on an empty line to finish)\n");
+
+    for line in input.clone().split("\n") {
+        println!("{:?}", (input.clone(), input.clone().split("\n")));
+        print!("    > ");
+        println!("{}", line.replace("\\n","\n").trim_matches('"'));
+    }
+    io::stdout().flush().expect("Failed to flush");
+
+    let binding = write_loop(&mut input);
+    let result = binding.as_str().unwrap();
+
+    input.push_str(result);
+
+    return Value::String(input);
+}
+
+pub const fn get_help_message<'a>() -> &'a str {
+    return "Usage:\n
+    write <note> - Edit a note\n
+    see <note> - View a specific note\n
+    remove <note> - Remove a specific note\n
+    create <title> - Create a new note with the given title\n
+    list - List all the current notes\n
+    exit - Exit the program\n";
+}
+
+fn write_loop( input: &mut String) -> Value {
+        loop {
         let mut line = String::new();
 
-        print!("> ");
+        print!("    > ");
         io::stdout().flush().expect("Failed to flush");
 
         io::stdin().read_line(&mut line).expect("Failed to read line");
 
         let trimmed = line.trim();
+
         if trimmed == "END" {
             break;
         }
@@ -22,5 +58,9 @@ pub fn write() -> String {
         input.push('\n');
     }
 
-    return input;
+    println!("{}", input);
+
+    let input = input.clone();
+
+    return Value::String(input);
 }
