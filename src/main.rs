@@ -12,7 +12,7 @@ use std::io::{self, Write, BufReader};
 
 use std::fs::File;
 
-use serde_json::{Result, Value};
+use serde_json::Value;
 
 fn main() {
     let mut stdout = io::stdout();
@@ -34,7 +34,16 @@ fn main() {
 
     const HELP_MESSAGE: &str = write::get_help_message();
 
-    let mut file = File::open("data/notes.json").expect("Could not open file");
+    let file ;
+
+    if std::path::Path::new("data/notes.json").exists() {
+        file = File::open("data/notes.json").expect("Could not open file");
+    }else {
+        if !std::path::Path::new("data").exists() {
+            std::fs::create_dir_all("data").expect("Failed to create directory");
+        }
+        file = File::create("data/notes.json").expect("Could not create file");
+    }
     let reader = BufReader::new(file);
 
     let mut notes = HashMap::new();
@@ -66,7 +75,16 @@ fn main() {
             "write" => {
                 if command.len() >= 2 {
                     if notes.contains_key(command[1]) {
-                        notes.insert(command[1].to_string(), write::edit_note(notes.get(command[1]).unwrap().to_string()));
+                        let text = notes.get(command[1]);
+                        let string: String;
+                        match text {
+                            Some(str) => {
+                                string = str.as_str().unwrap().to_string();
+                            }
+                            _ => panic!("could not open note"),
+                        }
+                        notes.insert(command[1].to_string(), Value::String("".to_string()));
+                        notes.insert(command[1].to_string(), write::edit_note(string));
                         update_json(notes.clone());
                     }else{
                         println!("Note not found\n")
@@ -107,6 +125,7 @@ fn main() {
                     if !notes.contains_key(command[1]){
                         notes.insert(command[1].to_string(), write::write());
                         update_json(notes.clone());
+                        println!("{:?}", notes);
                         println!("Note: {}, successfully created.\n", command[1]);
                     }else{
                         println!("Note already exists.\n");
@@ -161,5 +180,5 @@ fn update_json(notes: HashMap<String, Value>){
 
     let mut file = File::create("data/notes.json").unwrap();
 
-    file.write_all(bytes);
+    let _ = file.write_all(bytes);
 }

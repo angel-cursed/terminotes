@@ -14,17 +14,13 @@ pub fn edit_note(note: String) -> Value {
 
     println!("Enter your text (write END on an empty line to finish)\n");
 
-    for line in input.clone().split("\n") {
-        println!("{:?}", (input.clone(), input.clone().split("\n")));
+    for line in input.lines() {
         print!("    > ");
-        println!("{}", line.replace("\\n","\n").trim_matches('"'));
+        println!("{}", line);
+        io::stdout().flush().expect("Failed to flush");
     }
-    io::stdout().flush().expect("Failed to flush");
 
-    let binding = write_loop(&mut input);
-    let result = binding.as_str().unwrap();
-
-    input.push_str(result);
+    let _ = write_loop(&mut input);
 
     return Value::String(input);
 }
@@ -58,9 +54,6 @@ fn write_loop( input: &mut String) -> Value {
         input.push('\n');
     }
 
-    println!("{}", input);
-
     let input = input.clone();
-
     return Value::String(input);
 }
