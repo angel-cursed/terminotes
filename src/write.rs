@@ -1,28 +1,23 @@
 use std::io::{self, Write};
 use serde_json::Value;
 
+use crossterm::{
+    queue,
+    terminal::{self,ClearType, Clear},
+    cursor::MoveTo,
+    event::{self,Event, KeyCode, KeyEvent},
+};
+
 pub fn write() -> Value {
-    let mut input = String::new();
+    let input = String::new();
 
-    println!("Enter your text (write END on an empty line to finish)\n");
-
-    return write_loop(&mut input);
+    return write_loop(input);
 }
 
 pub fn edit_note(note: String) -> Value {
-    let mut input = note;
+    let input = note;
 
-    println!("Enter your text (write END on an empty line to finish)\n");
-
-    for line in input.lines() {
-        print!("    > ");
-        println!("{}", line);
-        io::stdout().flush().expect("Failed to flush");
-    }
-
-    let _ = write_loop(&mut input);
-
-    return Value::String(input);
+    return write_loop(input)
 }
 
 pub const fn get_help_message<'a>() -> &'a str {
@@ -35,25 +30,136 @@ pub const fn get_help_message<'a>() -> &'a str {
     exit - Exit the program\n";
 }
 
-fn write_loop( input: &mut String) -> Value {
-        loop {
-        let mut line = String::new();
+fn write_loop(input: String) -> Value {
 
-        print!("    > ");
-        io::stdout().flush().expect("Failed to flush");
+    let _ = terminal::enable_raw_mode();
+    let mut stdout = io::stdout();
 
-        io::stdin().read_line(&mut line).expect("Failed to read line");
-
-        let trimmed = line.trim();
-
-        if trimmed == "END" {
-            break;
+    let mut lines : Vec<String> = Vec::new();
+    if !input.is_empty() {
+        for line in input.lines() {
+            lines.push(line.to_string());
         }
-
-        input.push_str(trimmed);
-        input.push('\n');
     }
 
-    let input = input.clone();
-    return Value::String(input);
+    let mut line = String::new();
+    if !lines.is_empty() {
+        line = lines[lines.len() - 1].clone();
+    }
+    let mut line_index = lines.len();
+    if line_index > 0 {
+        line_index -= 1;
+    }
+
+    let mut index: usize = 0;
+
+    if !lines.is_empty(){
+        index = lines[line_index].len();
+    }
+        loop {
+            let _ = queue!(stdout, MoveTo(0,0), Clear(ClearType::All));
+            println!("Enter your text (Use ESC to finish)\n");
+            for line in lines.iter() {
+                let _ = write!(stdout,"    > {line}\n");
+            }
+            let _ = queue!(stdout, MoveTo(index as u16 + 6 , line_index as u16 + 2));
+            stdout.flush().expect("Failed to flush");
+            match event::read() {
+                Ok(Event::Key(KeyEvent { code, .. })) => {
+                    match code {
+                        KeyCode::Esc => {
+                            break;
+                        },
+                        KeyCode::Backspace => {
+                            if index > 0 {
+                                line.remove(index - 1);
+                                index -= 1;
+                            } else if line_index > 0 {
+                                line.clear();
+                                lines.remove(line_index);
+                                line_index -= 1;
+                                line = lines[line_index].clone();
+                                index = line.len() - 1;
+                            }
+                        },
+                        KeyCode::Char(c) => {
+                            line.insert(index, c);
+                            index += 1;
+                        },
+                        KeyCode::Enter => {
+                            line_index += 1;
+                            if line_index == lines.len() {
+                                lines.push(line.clone());
+                                line.clear();
+                                index = 0;
+                            } else {
+                                lines.insert(line_index, line.clone());
+                                index = 0;
+                                line.clear();
+                            }
+                        },
+                        KeyCode::Up => {
+                            if line_index > 0 {
+                                line_index -= 1;
+                                line = lines[line_index].clone();
+                                index = line.len();
+                            }
+                        },
+                        KeyCode::Down => {
+                            line_index += 1;
+
+                            if line_index < lines.len() - 1 {
+                                line = lines[line_index].clone();
+                                index = line.len();
+                            } else if line_index == lines.len() - 1{
+                                index = 0;
+                                line.clear();
+                            }else {
+                                line_index -= 1;
+                            }
+                        },
+                        KeyCode::Left => {
+                            if index > 0 {
+                                index -= 1;
+                            } else if line_index > 0 {
+                                line_index -= 1;
+                                line = lines[line_index].clone();
+                                index = line.len();
+                            }
+                        },
+                        KeyCode::Right => {
+                            if index < line.len() {
+                                index += 1;
+                            } else if line_index + 1 < lines.len() {
+                                line_index += 1;
+                                line = lines[line_index].clone();
+                                index = line.len();
+
+                            }
+                        },
+                        _ => {}
+                    }
+                },
+                _ => {
+                    eprintln!("Error");
+                    break;
+                }
+            }
+        if line_index >= lines.len() {
+            lines.resize(line_index + 1, String::new()); // Extend the vector with default value 0
+        }
+        lines[line_index] = line.clone();
+        lines[line_index].push('\n');
+
+    }
+
+    let _ = terminal::disable_raw_mode();
+
+    let mut collected = String::new();
+
+    for line in lines.iter() {
+        collected.push_str(&line)
+    }
+
+    return Value::String(collected);
 }

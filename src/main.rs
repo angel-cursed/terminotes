@@ -15,22 +15,8 @@ use std::fs::File;
 use serde_json::Value;
 
 fn main() {
-    let mut stdout = io::stdout();
 
-    let _ = execute!(stdout, terminal::Clear(ClearType::All));
-
-    let _ = execute!(stdout, cursor::MoveTo(0,0));
-
-    println!("{}", r"
-     _______                  _   _   _       _
-    |__   __|                (_) | \ | |     | |
-       | | ___ _ __ _ __ ___  _  |  \| | ___ | |_ ___  ___
-       | |/ _ \ '__| '_ ` _ \| | | . ` |/ _ \| __/ _ \/ __|
-       | |  __/ |  | | | | | | | | |\  | (_) | ||  __/\__ \
-       |_|\___|_|  |_| |_| |_|_| |_| \_|\___/ \__\___||___/
-
-
-    ".red().bold());
+    clear();
 
     const HELP_MESSAGE: &str = write::get_help_message();
 
@@ -85,7 +71,9 @@ fn main() {
                         }
                         notes.insert(command[1].to_string(), Value::String("".to_string()));
                         notes.insert(command[1].to_string(), write::edit_note(string));
+                        clear();
                         update_json(notes.clone());
+                        println!("Note: {}, successfully edited", command[1]);
                     }else{
                         println!("Note not found\n")
                     }
@@ -124,8 +112,8 @@ fn main() {
                 if command.len() >= 2 {
                     if !notes.contains_key(command[1]){
                         notes.insert(command[1].to_string(), write::write());
+                        clear();
                         update_json(notes.clone());
-                        println!("{:?}", notes);
                         println!("Note: {}, successfully created.\n", command[1]);
                     }else{
                         println!("Note already exists.\n");
@@ -136,6 +124,8 @@ fn main() {
             }
 
             "list" => see_notes(notes.clone()),
+
+            "clear" => clear(),
 
             "exit" => break,
 
@@ -181,4 +171,24 @@ fn update_json(notes: HashMap<String, Value>){
     let mut file = File::create("data/notes.json").unwrap();
 
     let _ = file.write_all(bytes);
+}
+
+fn clear() {
+
+    let mut stdout = io::stdout();
+
+    let _ = execute!(stdout, terminal::Clear(ClearType::All));
+
+    let _ = execute!(stdout, cursor::MoveTo(0,0));
+
+    println!("{}", r"
+     _______                  _   _   _       _
+    |__   __|                (_) | \ | |     | |
+       | | ___ _ __ _ __ ___  _  |  \| | ___ | |_ ___  ___
+       | |/ _ \ '__| '_ ` _ \| | | . ` |/ _ \| __/ _ \/ __|
+       | |  __/ |  | | | | | | | | |\  | (_) | ||  __/\__ \
+       |_|\___|_|  |_| |_| |_|_| |_| \_|\___/ \__\___||___/
+
+
+    ".red().bold());
 }
