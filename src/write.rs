@@ -1,9 +1,11 @@
 use std::io::{self, Write};
 use serde_json::Value;
 
+
 use crossterm::{
     queue,
-    terminal::{self,ClearType, Clear},
+    execute,
+    terminal::{ClearType, Clear},
     cursor::MoveTo,
     event::{self,Event, KeyCode, KeyEvent},
 };
@@ -32,13 +34,13 @@ pub const fn get_help_message<'a>() -> &'a str {
 
 fn write_loop(input: String) -> Value {
 
-    let _ = terminal::enable_raw_mode();
+    // let _ = terminal::enable_raw_mode();
     let mut stdout = io::stdout();
 
     let mut lines : Vec<String> = Vec::new();
     if !input.is_empty() {
         for line in input.lines() {
-            lines.push(line.to_string());
+            lines.push(line.to_string() + "\n");
         }
     }
 
@@ -57,12 +59,18 @@ fn write_loop(input: String) -> Value {
         index = lines[line_index].len();
     }
         loop {
-            let _ = queue!(stdout, MoveTo(0,0), Clear(ClearType::All));
-            println!("Enter your text (Use ESC to finish)\n");
+            execute!(
+                stdout,
+                MoveTo(0,0),
+                Clear(ClearType::All)
+            ).expect("Failed to clear terminal");
+
+            println!("Enter your text (Use ESC to finish) {:?}\n", lines);
+
             for line in lines.iter() {
-                let _ = write!(stdout,"    > {line}\n");
+                let _ = write!(stdout,"    > {line}");
             }
-            let _ = queue!(stdout, MoveTo(index as u16 + 6 , line_index as u16 + 2));
+            let _ = queue!(stdout, MoveTo((index + 6) as u16 , (line_index + 2) as u16));
             stdout.flush().expect("Failed to flush");
             match event::read() {
                 Ok(Event::Key(KeyEvent { code, .. })) => {
@@ -78,8 +86,9 @@ fn write_loop(input: String) -> Value {
                                 line.clear();
                                 lines.remove(line_index);
                                 line_index -= 1;
+                                lines[line_index].pop();
                                 line = lines[line_index].clone();
-                                index = line.len() - 1;
+                                index = line.len();
                             }
                         },
                         KeyCode::Char(c) => {
@@ -87,20 +96,24 @@ fn write_loop(input: String) -> Value {
                             index += 1;
                         },
                         KeyCode::Enter => {
+                            if lines.is_empty(){
+                                lines.push("\n".to_string());
+                            }
                             line_index += 1;
-                            if line_index == lines.len() {
+                            line.clear();
+
+                            if line_index >= lines.len() {
                                 lines.push(line.clone());
-                                line.clear();
-                                index = 0;
                             } else {
                                 lines.insert(line_index, line.clone());
-                                index = 0;
-                                line.clear();
+                                lines[line_index].pop();
                             }
+                            index = 0;
                         },
                         KeyCode::Up => {
                             if line_index > 0 {
                                 line_index -= 1;
+                                lines[line_index].pop();
                                 line = lines[line_index].clone();
                                 index = line.len();
                             }
@@ -108,12 +121,10 @@ fn write_loop(input: String) -> Value {
                         KeyCode::Down => {
                             line_index += 1;
 
-                            if line_index < lines.len() - 1 {
+                            if line_index < lines.len(){
+                                lines[line_index].pop();
                                 line = lines[line_index].clone();
                                 index = line.len();
-                            } else if line_index == lines.len() - 1{
-                                index = 0;
-                                line.clear();
                             }else {
                                 line_index -= 1;
                             }
@@ -123,6 +134,7 @@ fn write_loop(input: String) -> Value {
                                 index -= 1;
                             } else if line_index > 0 {
                                 line_index -= 1;
+                                lines[line_index].pop();
                                 line = lines[line_index].clone();
                                 index = line.len();
                             }
@@ -132,6 +144,7 @@ fn write_loop(input: String) -> Value {
                                 index += 1;
                             } else if line_index + 1 < lines.len() {
                                 line_index += 1;
+                                lines[line_index].pop();
                                 line = lines[line_index].clone();
                                 index = line.len();
 
@@ -146,20 +159,22 @@ fn write_loop(input: String) -> Value {
                 }
             }
         if line_index >= lines.len() {
-            lines.resize(line_index + 1, String::new()); // Extend the vector with default value 0
+            lines.resize(line_index + 1, "\n".to_string());
         }
         lines[line_index] = line.clone();
         lines[line_index].push('\n');
 
     }
 
-    let _ = terminal::disable_raw_mode();
+    // let _ = terminal::disable_raw_mode();
 
     let mut collected = String::new();
 
     for line in lines.iter() {
         collected.push_str(&line)
     }
+
+    collected.pop();
 
     return Value::String(collected);
 }
